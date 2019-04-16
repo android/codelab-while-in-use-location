@@ -1,0 +1,294 @@
+/*
+ * Copyright 2019 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.example.android.whileinuselocation
+
+import android.Manifest
+import android.content.pm.PackageManager
+import android.content.BroadcastReceiver
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.ServiceConnection
+import android.content.SharedPreferences
+import android.location.Location
+import android.net.Uri
+import android.os.IBinder
+import android.os.Bundle
+import android.provider.Settings
+import android.util.Log
+import android.widget.Button
+import android.widget.Toast
+
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
+
+import com.google.android.material.snackbar.Snackbar
+/**
+ *  This app allows a user to track their location. Because this app creates a foreground service
+ *  (tied to a Notification) when the user navigates away from the app, it only needs "while in use"
+ *  location permissions. That is, there is no need to ask for location all the time
+ *  (which requires additional permissions in the manifest).
+ *
+ *  Note: Users have three options in Q+ regarding location:
+ *
+ *  * Allow all the time
+ *  * Allow while app is in use, i.e., while app is in foreground
+ *  * Not allow location at all
+ *
+ * It is generally recommended you only request "while in use" location permissions. If your app
+ * does have a feature that requires background, request that permission in context and handle it
+ * gracefully if the user denies the request or only allows "while-in-use".
+ *
+ * "Q" also now requires developers to specify foreground service type in the manifest (in this
+ * case, "location").
+ *
+ * This sample uses a long-running bound and started service for location updates. The service is
+ * aware of foreground status of this activity, which is the only bound client in
+ * this sample. After requesting location updates and when the activity ceases to be in the
+ * foreground, the service promotes itself to a foreground service and continues receiving location
+ * updates. When the activity comes back to the foreground, the foreground service stops, and the
+ * notification associated with that foreground service is removed.
+ *
+ * While the foreground service notification is displayed, the user has the option to launch the
+ * activity from the notification. The user can also remove location updates directly from the
+ * notification. This dismisses the notification and stops the service.
+ */
+class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceChangeListener {
+
+    // Listens for location broadcasts from LocationService.
+    private lateinit var locationServiceBroadcastReceiver: LocationServiceBroadcastReceiver
+
+    // Provides location updates.
+    private var locationService: LocationService? = null
+
+    private var locationServiceBound = false
+
+    private lateinit var startTrackingLocationButton: Button
+    private lateinit var stopTrackingLocationButton: Button
+
+    // Monitors connection to the service.
+    private val serviceConnection = object : ServiceConnection {
+
+        override fun onServiceConnected(name: ComponentName, service: IBinder) {
+            val binder = service as LocationService.LocalBinder
+            locationService = binder.service
+            locationServiceBound = true
+        }
+
+        override fun onServiceDisconnected(name: ComponentName) {
+            locationService = null
+            locationServiceBound = false
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        setContentView(R.layout.activity_main)
+
+        locationServiceBroadcastReceiver = LocationServiceBroadcastReceiver()
+    }
+
+    override fun onStart() {
+        super.onStart()
+
+        getSharedPreferences(getString(R.string.preference_file_key), Context.MODE_PRIVATE)
+            .registerOnSharedPreferenceChangeListener(this)
+
+        startTrackingLocationButton = findViewById(R.id.start_tracking_location_button)
+
+        stopTrackingLocationButton = findViewById(R.id.stop_tracking_location_button)
+
+        startTrackingLocationButton.setOnClickListener {
+            if (!checkPermissions()) {
+                requestPermissions()
+            } else {
+                locationService?.startTrackingLocation()
+                    ?: Log.d(TAG, "Service Not Bound")
+            }
+        }
+
+        stopTrackingLocationButton.setOnClickListener {
+            locationService?.stopTrackingLocation()
+        }
+
+        // Restore the state of the buttons when the activity (re)launches.
+        updateButtonsState(SharedPreferenceUtil.getLocationTrackingPref(this))
+
+        val serviceIntent = Intent(this, LocationService::class.java)
+        bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        LocalBroadcastManager.getInstance(this).registerReceiver(
+            locationServiceBroadcastReceiver,
+            IntentFilter(LocationService.ACTION_NEW_LOCATION_BROADCAST)
+        )
+    }
+
+    override fun onPause() {
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(
+            locationServiceBroadcastReceiver
+        )
+        super.onPause()
+    }
+
+    override fun onStop() {
+        if (locationServiceBound) {
+            unbindService(serviceConnection)
+            locationServiceBound = false
+        }
+        getSharedPreferences(getString(R.string.preference_file_key), Context.MODE_PRIVATE)
+            .unregisterOnSharedPreferenceChangeListener(this)
+
+        super.onStop()
+    }
+
+    private fun checkPermissions(): Boolean {
+        return PackageManager.PERMISSION_GRANTED == ActivityCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        )
+    }
+
+    override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences, key: String) {
+        // Updates button states if new location is added to SharedPreferences.
+        if (key == SharedPreferenceUtil.KEY_TRACKING_LOCATION) {
+            updateButtonsState(
+                sharedPreferences.getBoolean(SharedPreferenceUtil.KEY_TRACKING_LOCATION, false)
+            )
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
+        Log.d(TAG, "onRequestPermissionResult")
+
+        if (requestCode == REQUEST_PERMISSIONS_REQUEST_CODE) {
+            when {
+                grantResults.isEmpty() ->
+                    // If user interaction was interrupted, the permission request
+                    // is cancelled and you receive empty arrays.
+                    Log.d(TAG, "User interaction was cancelled.")
+
+                grantResults[0] == PackageManager.PERMISSION_GRANTED ->
+                    // Permission was granted.
+                    locationService?.startTrackingLocation()
+
+                else -> {
+                    // Permission denied.
+                    updateButtonsState(false)
+
+                    Snackbar.make(
+                        findViewById(R.id.activity_main),
+                        R.string.permission_denied_explanation,
+                        Snackbar.LENGTH_INDEFINITE
+                    )
+                        .setAction(R.string.settings) {
+                            // Build intent that displays the App settings screen.
+                            val intent = Intent()
+                            intent.action = Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                            val uri = Uri.fromParts(
+                                "package",
+                                BuildConfig.APPLICATION_ID,
+                                null
+                            )
+                            intent.data = uri
+                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            startActivity(intent)
+                        }
+                        .show()
+                }
+            }
+        }
+    }
+
+    private fun requestPermissions() {
+
+        val provideRationale =
+            ActivityCompat.shouldShowRequestPermissionRationale(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            )
+
+        // If the user denied a previous request, but didn't check "Don't ask again", provide
+        // additional rationale.
+        if (provideRationale) {
+            Snackbar.make(
+                findViewById(R.id.activity_main),
+                R.string.permission_rationale,
+                Snackbar.LENGTH_INDEFINITE
+            )
+                .setAction(R.string.ok) {
+                    // Request permission
+                    ActivityCompat.requestPermissions(
+                        this@MainActivity,
+                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                        REQUEST_PERMISSIONS_REQUEST_CODE
+                    )
+                }
+                .show()
+        } else {
+            Log.d(TAG, "Request permission")
+            ActivityCompat.requestPermissions(
+                this@MainActivity,
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                REQUEST_PERMISSIONS_REQUEST_CODE
+            )
+        }
+    }
+
+    private fun updateButtonsState(trackingLocation: Boolean) {
+        if (trackingLocation) {
+            startTrackingLocationButton.isEnabled = false
+            stopTrackingLocationButton.isEnabled = true
+        } else {
+            startTrackingLocationButton.isEnabled = true
+            stopTrackingLocationButton.isEnabled = false
+        }
+    }
+
+    /**
+     * Receiver for location broadcasts from [LocationService].
+     */
+    private inner class LocationServiceBroadcastReceiver : BroadcastReceiver() {
+
+        override fun onReceive(context: Context, intent: Intent) {
+            val location = intent.getParcelableExtra<Location>(
+                LocationService.EXTRA_LOCATION
+            )
+
+            if (location != null) {
+                Toast.makeText(
+                    this@MainActivity, location.toText(),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
+    companion object {
+        private val TAG = MainActivity::class.java.simpleName
+
+        private const val REQUEST_PERMISSIONS_REQUEST_CODE = 34
+    }
+}
