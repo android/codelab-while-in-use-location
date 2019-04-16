@@ -24,7 +24,7 @@ android {
     buildToolsVersion "29.0.0 rc1"
     defaultConfig {
         applicationId "com.example.android.while_in_use_location"
-        minSdkVersion 'Q'
+        minSdkVersion 28
         targetSdkVersion 'Q'
         versionCode 1
         versionName "1.0"
