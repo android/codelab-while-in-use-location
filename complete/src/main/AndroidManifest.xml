@@ -22,6 +22,10 @@
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
 
+    <!-- Required in Q+ for access to background location. -->
+    <!-- TODO: 3.1, Add background uses-permission to manifest. -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+
     <application
             android:allowBackup="true"
             android:icon="@mipmap/ic_launcher"

@@ -32,10 +32,10 @@ import android.provider.Settings
 import android.util.Log
 import android.widget.Button
 import android.widget.TextView
-import android.widget.Toast
 
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.core.os.BuildCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 
 import com.google.android.material.snackbar.Snackbar
@@ -72,6 +72,14 @@ import com.google.android.material.snackbar.Snackbar
 class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceChangeListener {
 
     private var whileInUseLocationServiceBound = false
+    private var allTheTimeTrackingEnabled = false
+
+    /* Normally, you use this code to check for Q or higher:
+     * Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+     * However, because Q hasn't been released to production yet, we use isAtLeastQ().
+     */
+    // TODO: Step 3.2, review code checks for devices with Q.
+    private val runningQOrLater = BuildCompat.isAtLeastQ()
 
     // Provides location updates for while-in-use feature.
     private var whileInUseLocationService: WhileInUseLocationService? = null
@@ -123,17 +131,26 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             if (enabled) {
                 whileInUseLocationService?.stopTrackingLocation()
             } else {
-                if (!checkWhileInUsePermission()) {
-                    requestWhileInUsePermissions()
-                } else {
+                if (whileInUsePermissionApproved()) {
                     whileInUseLocationService?.startTrackingLocation()
                         ?: Log.d(TAG, "Service Not Bound")
+                } else {
+                    requestWhileInUsePermissions()
                 }
             }
         }
 
         allTheTimeLocationButton.setOnClickListener {
-            // TODO: Add all the time logic.
+            when {
+                allTheTimeTrackingEnabled -> stopBackgroundTracking()
+                else -> {
+                    if (allTheTimePermissionApproved()) {
+                        startBackgroundTracking()
+                    } else {
+                        requestAllTheTimePermissions()
+                    }
+                }
+            }
         }
     }
 
@@ -174,18 +191,103 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         super.onStop()
     }
 
-    private fun checkWhileInUsePermission(): Boolean {
-        return PackageManager.PERMISSION_GRANTED == ActivityCompat.checkSelfPermission(
-            this,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        )
-    }
-
     override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences, key: String) {
         // Updates button states if new while in use location is added to SharedPreferences.
         if (key == SharedPreferenceUtil.KEY_WHILE_IN_USE_ENABLED) {
             updateWhileInUseButtonsState(
                 sharedPreferences.getBoolean(SharedPreferenceUtil.KEY_WHILE_IN_USE_ENABLED, false)
+            )
+        }
+    }
+
+    private fun whileInUsePermissionApproved(): Boolean {
+        return PackageManager.PERMISSION_GRANTED == ActivityCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        )
+    }
+
+    private fun allTheTimePermissionApproved(): Boolean {
+        val fineLocationApproved = ActivityCompat.checkSelfPermission(
+            this, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        // TODO: Step 3.3, Add permission check for background permissions.
+        val backgroundPermissionApproved =
+            if (runningQOrLater) {
+                ActivityCompat.checkSelfPermission(
+                    this, Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+
+        return fineLocationApproved && backgroundPermissionApproved
+    }
+
+    private fun requestWhileInUsePermissions() {
+
+        val provideRationale = whileInUsePermissionApproved()
+
+        // If the user denied a previous request, but didn't check "Don't ask again", provide
+        // additional rationale.
+        if (provideRationale) {
+            Snackbar.make(
+                findViewById(R.id.activity_main),
+                R.string.permission_rationale,
+                Snackbar.LENGTH_LONG
+            )
+                .setAction(R.string.ok) {
+                    // Request permission
+                    ActivityCompat.requestPermissions(
+                        this@MainActivity,
+                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                        REQUEST_WHILE_IN_USE_PERMISSIONS_REQUEST_CODE
+                    )
+                }
+                .show()
+        } else {
+            Log.d(TAG, "Request while in use permission")
+            ActivityCompat.requestPermissions(
+                this@MainActivity,
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                REQUEST_WHILE_IN_USE_PERMISSIONS_REQUEST_CODE
+            )
+        }
+    }
+
+    private fun requestAllTheTimePermissions() {
+        val provideRationale = allTheTimePermissionApproved()
+
+        val permissionRequests = arrayListOf(Manifest.permission.ACCESS_FINE_LOCATION)
+        // TODO: Step 3.4, Add another entry to permission request array.
+        if (runningQOrLater) {
+            permissionRequests.add(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+        }
+
+        // If the user denied a previous request, but didn't check "Don't ask again", provide
+        // additional rationale.
+        if (provideRationale) {
+            Snackbar.make(
+                findViewById(R.id.activity_main),
+                R.string.permission_rationale,
+                Snackbar.LENGTH_LONG
+            )
+                .setAction(R.string.ok) {
+                    // Request permission(s)
+                    ActivityCompat.requestPermissions(
+                        this@MainActivity,
+                        permissionRequests.toTypedArray(),
+                        REQUEST_ALL_THE_TIME_REQUEST_CODE
+                    )
+                }
+                .show()
+        } else {
+            Log.d(TAG, "Request all the time permission")
+            ActivityCompat.requestPermissions(
+                this@MainActivity,
+                permissionRequests.toTypedArray(),
+                REQUEST_ALL_THE_TIME_REQUEST_CODE
             )
         }
     }
@@ -197,8 +299,8 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     ) {
         Log.d(TAG, "onRequestPermissionResult")
 
-        if (requestCode == REQUEST_WHILE_IN_USE_PERMISSIONS_REQUEST_CODE) {
-            when {
+        when (requestCode) {
+            REQUEST_WHILE_IN_USE_PERMISSIONS_REQUEST_CODE -> when {
                 grantResults.isEmpty() ->
                     // If user interaction was interrupted, the permission request
                     // is cancelled and you receive empty arrays.
@@ -215,7 +317,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
                     Snackbar.make(
                         findViewById(R.id.activity_main),
                         R.string.permission_denied_explanation,
-                        Snackbar.LENGTH_INDEFINITE
+                        Snackbar.LENGTH_LONG
                     )
                         .setAction(R.string.settings) {
                             // Build intent that displays the App settings screen.
@@ -233,41 +335,49 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
                         .show()
                 }
             }
-        }
-    }
 
-    private fun requestWhileInUsePermissions() {
+            REQUEST_ALL_THE_TIME_REQUEST_CODE -> {
 
-        val provideRationale =
-            ActivityCompat.shouldShowRequestPermissionRationale(
-                this,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            )
+                var allTheTimeApproved = grantResults[0] == PackageManager.PERMISSION_GRANTED
 
-        // If the user denied a previous request, but didn't check "Don't ask again", provide
-        // additional rationale.
-        if (provideRationale) {
-            Snackbar.make(
-                findViewById(R.id.activity_main),
-                R.string.permission_rationale,
-                Snackbar.LENGTH_INDEFINITE
-            )
-                .setAction(R.string.ok) {
-                    // Request permission
-                    ActivityCompat.requestPermissions(
-                        this@MainActivity,
-                        arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
-                        REQUEST_WHILE_IN_USE_PERMISSIONS_REQUEST_CODE
-                    )
+                // TODO: Step 3.5, For Q, check if background permissions approved in request code.
+                if(runningQOrLater) {
+                    allTheTimeApproved =
+                        allTheTimeApproved && (grantResults[1] == PackageManager.PERMISSION_GRANTED)
                 }
-                .show()
-        } else {
-            Log.d(TAG, "Request permission")
-            ActivityCompat.requestPermissions(
-                this@MainActivity,
-                arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
-                REQUEST_WHILE_IN_USE_PERMISSIONS_REQUEST_CODE
-            )
+
+                // If user interaction was interrupted, the permission request
+                // is cancelled and you receive empty arrays.
+                when {
+                    grantResults.isEmpty() -> Log.d(TAG, "User interaction was cancelled.")
+                    // TODO: Step 3.6, review method call to track background.
+                    allTheTimeApproved -> startBackgroundTracking()
+                    else -> {
+                        // Permission denied.
+                        updateWhileInUseButtonsState(false)
+
+                        Snackbar.make(
+                            findViewById(R.id.activity_main),
+                            R.string.permission_denied_explanation,
+                            Snackbar.LENGTH_LONG
+                        )
+                            .setAction(R.string.settings) {
+                                // Build intent that displays the App settings screen.
+                                val intent = Intent()
+                                intent.action = Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                                val uri = Uri.fromParts(
+                                    "package",
+                                    BuildConfig.APPLICATION_ID,
+                                    null
+                                )
+                                intent.data = uri
+                                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                startActivity(intent)
+                            }
+                            .show()
+                    }
+                }
+            }
         }
     }
 
@@ -277,6 +387,35 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         } else {
             whileInUseLocationButton.text = getString(R.string.enable_while_in_use_location)
         }
+    }
+
+    private fun updateAllTheTimeButtonsState() {
+        if (allTheTimeTrackingEnabled) {
+            allTheTimeLocationButton.text = getString(R.string.disable_all_the_time_location)
+        } else {
+            allTheTimeLocationButton.text = getString(R.string.enable_all_the_time_location)
+        }
+    }
+
+    private fun startBackgroundTracking() {
+        Log.d(TAG, "startBackgroundTracking()")
+        allTheTimeTrackingEnabled = true
+        updateAllTheTimeButtonsState()
+        logResultsToScreen("All the time location tracking enabled.")
+        // TODO: Add logic.
+    }
+
+    private fun stopBackgroundTracking() {
+        Log.d(TAG, "stopBackgroundTracking()")
+        allTheTimeTrackingEnabled = false
+        updateAllTheTimeButtonsState()
+        logResultsToScreen("All the time location tracking disabled.")
+        // TODO: Add logic.
+    }
+
+    private fun logResultsToScreen(output:String) {
+        val outputWithPreviousLogs = "$output\n${outputTextView.text}"
+        outputTextView.text = outputWithPreviousLogs
     }
 
     /**
@@ -290,8 +429,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             )
 
             if (location != null) {
-                val output = "While-in-use location: ${location.toText()}\n${outputTextView.text}"
-                outputTextView.text = output
+                logResultsToScreen("While-in-use location: ${location.toText()}")
             }
         }
     }
@@ -299,6 +437,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     companion object {
         private val TAG = MainActivity::class.java.simpleName
 
+        private const val REQUEST_ALL_THE_TIME_REQUEST_CODE = 56
         private const val REQUEST_WHILE_IN_USE_PERMISSIONS_REQUEST_CODE = 34
     }
 }
