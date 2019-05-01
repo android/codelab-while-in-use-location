@@ -20,6 +20,7 @@ apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 
 android {
+    // TODO: Step 2.1, Target Q.
     compileSdkVersion 'android-Q'
     buildToolsVersion "29.0.0 rc1"
     defaultConfig {

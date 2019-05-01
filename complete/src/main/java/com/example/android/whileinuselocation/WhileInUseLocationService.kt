@@ -15,7 +15,6 @@
  */
 package com.example.android.whileinuselocation
 
-import android.app.ActivityManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -48,7 +47,7 @@ import java.util.concurrent.TimeUnit
  * For apps running in the background on O+ devices, location is computed much less than previous
  * versions. Please reference documentation for details.
  */
-class LocationService : Service() {
+class WhileInUseLocationService : Service() {
     /*
      * Checks whether the bound activity has really gone away (foreground service with notification
      * created) or simply orientation change (no-op).
@@ -161,7 +160,7 @@ class LocationService : Service() {
         // Binding to this service doesn't actually trigger onStartCommand(). That is needed to
         // ensure this Service can be promoted to a foreground service, i.e., the service needs to
         // be officially started (which we do here).
-        startService(Intent(applicationContext, LocationService::class.java))
+        startService(Intent(applicationContext, WhileInUseLocationService::class.java))
 
         try {
             fusedLocationProviderClient.requestLocationUpdates(
@@ -213,7 +212,7 @@ class LocationService : Service() {
         currentLocation = location
 
         // Notify anyone listening for broadcasts about the new location.
-        val intent = Intent(ACTION_NEW_LOCATION_BROADCAST)
+        val intent = Intent(ACTION_NEW_WHILE_IN_USE_LOCATION_BROADCAST)
         intent.putExtra(EXTRA_LOCATION, location)
         LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(intent)
 
@@ -260,7 +259,7 @@ class LocationService : Service() {
         // 3. Set up main Intent/Pending Intents for notification.
         val launchActivityIntent = Intent(this, MainActivity::class.java)
 
-        val cancelIntent = Intent(this, LocationService::class.java)
+        val cancelIntent = Intent(this, WhileInUseLocationService::class.java)
         cancelIntent.putExtra(EXTRA_CANCEL_LOCATION_TRACKING_FROM_NOTIFICATION, true)
 
         val servicePendingIntent = PendingIntent.getService(
@@ -288,7 +287,7 @@ class LocationService : Service() {
             )
             .addAction(
                 R.drawable.ic_cancel,
-                getString(R.string.remove_location_updates),
+                getString(R.string.disable_while_in_use_location),
                 servicePendingIntent
             )
             .build()
@@ -299,16 +298,16 @@ class LocationService : Service() {
      * clients, we don't need to deal with IPC.
      */
     inner class LocalBinder : Binder() {
-        internal val service: LocationService
-            get() = this@LocationService
+        internal val service: WhileInUseLocationService
+            get() = this@WhileInUseLocationService
     }
 
     companion object {
 
         private const val PACKAGE_NAME = "com.example.android.whileinuselocation"
 
-        internal const val ACTION_NEW_LOCATION_BROADCAST =
-            "$PACKAGE_NAME.action.NEW_LOCATION_BROADCAST"
+        internal const val ACTION_NEW_WHILE_IN_USE_LOCATION_BROADCAST =
+            "$PACKAGE_NAME.action.NEW_WHILE_IN_USE_LOCATION_BROADCAST"
 
         internal const val EXTRA_LOCATION = "$PACKAGE_NAME.extra.LOCATION"
 
@@ -319,7 +318,7 @@ class LocationService : Service() {
     }
 }
 
-private const val TAG = "LocationService"
+private const val TAG = "WhileInUseLocationService"
 
 /*
  * The desired interval for location updates. Inexact. Updates may be

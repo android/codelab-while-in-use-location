@@ -37,8 +37,9 @@
         </activity>
 
         <!-- Foreground services in Q+ require type. -->
+        <!-- TODO: 2.2, Add foreground service type. -->
         <service
-            android:name="com.example.android.whileinuselocation.LocationService"
+            android:name="com.example.android.whileinuselocation.WhileInUseLocationService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="location" />

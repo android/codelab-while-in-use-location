@@ -15,7 +15,7 @@
   ~ limitations under the License.
   -->
 <resources>
-    <string name="app_name">While-in-use Location</string>
+    <string name="app_name">Location in Q</string>
 
     <string name="launch_activity">Launch activity</string>
     <string name="location_unknown">Location Unknown</string>
@@ -25,8 +25,12 @@
     <string name="permission_denied_explanation">Permission was denied, but is needed for core functionality.</string>
     <string name="settings">Settings</string>
     <string name="ok">OK</string>
-    <string name="request_location_updates">Request location updates</string>
-    <string name="remove_location_updates">Remove location updates</string>
+
+    <string name="enable_while_in_use_location">Enable while-in-use location</string>
+    <string name="disable_while_in_use_location">Disable while-in-use location</string>
+
+    <string name="enable_all_the_time_location">Enable all-the-time location</string>
+    <string name="disable_all_the_time_location">Disable all-the-time location</string>
 
     <string name="location_updated">Location Updated: %1$s</string>
 

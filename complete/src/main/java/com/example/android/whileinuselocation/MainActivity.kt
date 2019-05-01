@@ -31,6 +31,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
 import android.widget.Button
+import android.widget.TextView
 import android.widget.Toast
 
 import androidx.appcompat.app.AppCompatActivity
@@ -70,29 +71,33 @@ import com.google.android.material.snackbar.Snackbar
  */
 class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceChangeListener {
 
-    // Listens for location broadcasts from LocationService.
-    private lateinit var locationServiceBroadcastReceiver: LocationServiceBroadcastReceiver
+    private var whileInUseLocationServiceBound = false
 
-    // Provides location updates.
-    private var locationService: LocationService? = null
+    // Provides location updates for while-in-use feature.
+    private var whileInUseLocationService: WhileInUseLocationService? = null
 
-    private var locationServiceBound = false
+    // Listens for location broadcasts from WhileInUseLocationService.
+    private lateinit var whileInUseBroadcastReceiver: WhileInUseBroadcastReceiver
 
-    private lateinit var startTrackingLocationButton: Button
-    private lateinit var stopTrackingLocationButton: Button
+    private lateinit var sharedPreferences:SharedPreferences
 
-    // Monitors connection to the service.
-    private val serviceConnection = object : ServiceConnection {
+    private lateinit var whileInUseLocationButton: Button
+    private lateinit var allTheTimeLocationButton: Button
+
+    private lateinit var outputTextView: TextView
+
+    // Monitors connection to the while-in-use service.
+    private val whileInUseServiceConnection = object : ServiceConnection {
 
         override fun onServiceConnected(name: ComponentName, service: IBinder) {
-            val binder = service as LocationService.LocalBinder
-            locationService = binder.service
-            locationServiceBound = true
+            val binder = service as WhileInUseLocationService.LocalBinder
+            whileInUseLocationService = binder.service
+            whileInUseLocationServiceBound = true
         }
 
         override fun onServiceDisconnected(name: ComponentName) {
-            locationService = null
-            locationServiceBound = false
+            whileInUseLocationService = null
+            whileInUseLocationServiceBound = false
         }
     }
 
@@ -101,77 +106,86 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
         setContentView(R.layout.activity_main)
 
-        locationServiceBroadcastReceiver = LocationServiceBroadcastReceiver()
+        whileInUseBroadcastReceiver = WhileInUseBroadcastReceiver()
+
+        sharedPreferences =
+            getSharedPreferences(getString(R.string.preference_file_key), Context.MODE_PRIVATE)
+
+        whileInUseLocationButton = findViewById(R.id.while_in_use_location_button)
+        allTheTimeLocationButton = findViewById(R.id.all_the_time_location_button)
+        outputTextView = findViewById(R.id.output_text_view)
+
+        whileInUseLocationButton.setOnClickListener {
+
+            val enabled =
+                sharedPreferences.getBoolean(SharedPreferenceUtil.KEY_WHILE_IN_USE_ENABLED, false)
+
+            if (enabled) {
+                whileInUseLocationService?.stopTrackingLocation()
+            } else {
+                if (!checkWhileInUsePermission()) {
+                    requestWhileInUsePermissions()
+                } else {
+                    whileInUseLocationService?.startTrackingLocation()
+                        ?: Log.d(TAG, "Service Not Bound")
+                }
+            }
+        }
+
+        allTheTimeLocationButton.setOnClickListener {
+            // TODO: Add all the time logic.
+        }
     }
 
     override fun onStart() {
         super.onStart()
 
-        getSharedPreferences(getString(R.string.preference_file_key), Context.MODE_PRIVATE)
-            .registerOnSharedPreferenceChangeListener(this)
+        updateWhileInUseButtonsState(
+            sharedPreferences.getBoolean(SharedPreferenceUtil.KEY_WHILE_IN_USE_ENABLED, false)
+        )
+        sharedPreferences.registerOnSharedPreferenceChangeListener(this)
 
-        startTrackingLocationButton = findViewById(R.id.start_tracking_location_button)
-
-        stopTrackingLocationButton = findViewById(R.id.stop_tracking_location_button)
-
-        startTrackingLocationButton.setOnClickListener {
-            if (!checkPermissions()) {
-                requestPermissions()
-            } else {
-                locationService?.startTrackingLocation()
-                    ?: Log.d(TAG, "Service Not Bound")
-            }
-        }
-
-        stopTrackingLocationButton.setOnClickListener {
-            locationService?.stopTrackingLocation()
-        }
-
-        // Restore the state of the buttons when the activity (re)launches.
-        updateButtonsState(SharedPreferenceUtil.getLocationTrackingPref(this))
-
-        val serviceIntent = Intent(this, LocationService::class.java)
-        bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
+        val serviceIntent = Intent(this, WhileInUseLocationService::class.java)
+        bindService(serviceIntent, whileInUseServiceConnection, Context.BIND_AUTO_CREATE)
     }
 
     override fun onResume() {
         super.onResume()
         LocalBroadcastManager.getInstance(this).registerReceiver(
-            locationServiceBroadcastReceiver,
-            IntentFilter(LocationService.ACTION_NEW_LOCATION_BROADCAST)
+            whileInUseBroadcastReceiver,
+            IntentFilter(WhileInUseLocationService.ACTION_NEW_WHILE_IN_USE_LOCATION_BROADCAST)
         )
     }
 
     override fun onPause() {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(
-            locationServiceBroadcastReceiver
+            whileInUseBroadcastReceiver
         )
         super.onPause()
     }
 
     override fun onStop() {
-        if (locationServiceBound) {
-            unbindService(serviceConnection)
-            locationServiceBound = false
+        if (whileInUseLocationServiceBound) {
+            unbindService(whileInUseServiceConnection)
+            whileInUseLocationServiceBound = false
         }
-        getSharedPreferences(getString(R.string.preference_file_key), Context.MODE_PRIVATE)
-            .unregisterOnSharedPreferenceChangeListener(this)
+        sharedPreferences.unregisterOnSharedPreferenceChangeListener(this)
 
         super.onStop()
     }
 
-    private fun checkPermissions(): Boolean {
+    private fun checkWhileInUsePermission(): Boolean {
         return PackageManager.PERMISSION_GRANTED == ActivityCompat.checkSelfPermission(
             this,
-            Manifest.permission.ACCESS_FINE_LOCATION
+            Manifest.permission.ACCESS_COARSE_LOCATION
         )
     }
 
     override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences, key: String) {
-        // Updates button states if new location is added to SharedPreferences.
-        if (key == SharedPreferenceUtil.KEY_TRACKING_LOCATION) {
-            updateButtonsState(
-                sharedPreferences.getBoolean(SharedPreferenceUtil.KEY_TRACKING_LOCATION, false)
+        // Updates button states if new while in use location is added to SharedPreferences.
+        if (key == SharedPreferenceUtil.KEY_WHILE_IN_USE_ENABLED) {
+            updateWhileInUseButtonsState(
+                sharedPreferences.getBoolean(SharedPreferenceUtil.KEY_WHILE_IN_USE_ENABLED, false)
             )
         }
     }
@@ -183,7 +197,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     ) {
         Log.d(TAG, "onRequestPermissionResult")
 
-        if (requestCode == REQUEST_PERMISSIONS_REQUEST_CODE) {
+        if (requestCode == REQUEST_WHILE_IN_USE_PERMISSIONS_REQUEST_CODE) {
             when {
                 grantResults.isEmpty() ->
                     // If user interaction was interrupted, the permission request
@@ -192,11 +206,11 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
                 grantResults[0] == PackageManager.PERMISSION_GRANTED ->
                     // Permission was granted.
-                    locationService?.startTrackingLocation()
+                    whileInUseLocationService?.startTrackingLocation()
 
                 else -> {
                     // Permission denied.
-                    updateButtonsState(false)
+                    updateWhileInUseButtonsState(false)
 
                     Snackbar.make(
                         findViewById(R.id.activity_main),
@@ -222,12 +236,12 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         }
     }
 
-    private fun requestPermissions() {
+    private fun requestWhileInUsePermissions() {
 
         val provideRationale =
             ActivityCompat.shouldShowRequestPermissionRationale(
                 this,
-                Manifest.permission.ACCESS_FINE_LOCATION
+                Manifest.permission.ACCESS_COARSE_LOCATION
             )
 
         // If the user denied a previous request, but didn't check "Don't ask again", provide
@@ -242,8 +256,8 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
                     // Request permission
                     ActivityCompat.requestPermissions(
                         this@MainActivity,
-                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                        REQUEST_PERMISSIONS_REQUEST_CODE
+                        arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
+                        REQUEST_WHILE_IN_USE_PERMISSIONS_REQUEST_CODE
                     )
                 }
                 .show()
@@ -251,37 +265,33 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             Log.d(TAG, "Request permission")
             ActivityCompat.requestPermissions(
                 this@MainActivity,
-                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                REQUEST_PERMISSIONS_REQUEST_CODE
+                arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
+                REQUEST_WHILE_IN_USE_PERMISSIONS_REQUEST_CODE
             )
         }
     }
 
-    private fun updateButtonsState(trackingLocation: Boolean) {
+    private fun updateWhileInUseButtonsState(trackingLocation: Boolean) {
         if (trackingLocation) {
-            startTrackingLocationButton.isEnabled = false
-            stopTrackingLocationButton.isEnabled = true
+            whileInUseLocationButton.text = getString(R.string.disable_while_in_use_location)
         } else {
-            startTrackingLocationButton.isEnabled = true
-            stopTrackingLocationButton.isEnabled = false
+            whileInUseLocationButton.text = getString(R.string.enable_while_in_use_location)
         }
     }
 
     /**
-     * Receiver for location broadcasts from [LocationService].
+     * Receiver for location broadcasts from [WhileInUseLocationService].
      */
-    private inner class LocationServiceBroadcastReceiver : BroadcastReceiver() {
+    private inner class WhileInUseBroadcastReceiver : BroadcastReceiver() {
 
         override fun onReceive(context: Context, intent: Intent) {
             val location = intent.getParcelableExtra<Location>(
-                LocationService.EXTRA_LOCATION
+                WhileInUseLocationService.EXTRA_LOCATION
             )
 
             if (location != null) {
-                Toast.makeText(
-                    this@MainActivity, location.toText(),
-                    Toast.LENGTH_SHORT
-                ).show()
+                val output = "While-in-use location: ${location.toText()}\n${outputTextView.text}"
+                outputTextView.text = output
             }
         }
     }
@@ -289,6 +299,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     companion object {
         private val TAG = MainActivity::class.java.simpleName
 
-        private const val REQUEST_PERMISSIONS_REQUEST_CODE = 34
+        private const val REQUEST_WHILE_IN_USE_PERMISSIONS_REQUEST_CODE = 34
     }
 }
