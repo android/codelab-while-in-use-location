@@ -26,11 +26,11 @@
     <string name="settings">Settings</string>
     <string name="ok">OK</string>
 
-    <string name="enable_while_in_use_location">Enable while-in-use location</string>
-    <string name="disable_while_in_use_location">Disable while-in-use location</string>
+    <string name="enable_foreground_only_location">Enable foreground only location</string>
+    <string name="disable_foreground_only_location">Disable foreground only location</string>
 
-    <string name="enable_all_the_time_location">Enable all-the-time location</string>
-    <string name="disable_all_the_time_location">Disable all-the-time location</string>
+    <string name="enable_foreground_and_background_location">Enable foreground and background location</string>
+    <string name="disable_foreground_and_background_location">Disable foreground and background location</string>
 
     <string name="location_updated">Location Updated: %1$s</string>
 

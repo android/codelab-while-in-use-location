@@ -40,10 +40,15 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager
 
 import com.google.android.material.snackbar.Snackbar
 /**
- *  This app allows a user to track their location. Because this app creates a foreground service
- *  (tied to a Notification) when the user navigates away from the app, it only needs "while in use"
- *  location permissions. That is, there is no need to ask for location all the time
- *  (which requires additional permissions in the manifest).
+ *  This app allows a user to track their location.
+ *
+ *  One or the features in the app creates a foreground service (tied to a Notification) when the
+ *  user navigates away from the app. Because of this, it only needs foreground or "while in use"
+ *  location permissions. That is, there is no need to ask for location in the background (which
+ *  requires additional permissions in the manifest).
+ *
+ *  There is another feature that does require location in both the foreground and background to
+ *  show the proper way to get location for that scenario.
  *
  *  Note: Users have three options in Q+ regarding location:
  *
@@ -51,18 +56,23 @@ import com.google.android.material.snackbar.Snackbar
  *  * Allow while app is in use, i.e., while app is in foreground
  *  * Not allow location at all
  *
- * It is generally recommended you only request "while in use" location permissions. If your app
- * does have a feature that requires background, request that permission in context and handle it
- * gracefully if the user denies the request or only allows "while-in-use".
+ * It is generally recommended you only request "while in use" location permissions (location only
+ * needed in the foreground). If your app does have a feature that requires background, request
+ * that permission in context and handle it gracefully if the user denies the request or only
+ * allows "while-in-use".
  *
  * "Q" also now requires developers to specify foreground service type in the manifest (in this
  * case, "location").
  *
- * This sample uses a long-running bound and started service for location updates. The service is
- * aware of foreground status of this activity, which is the only bound client in
- * this sample. After requesting location updates and when the activity ceases to be in the
- * foreground, the service promotes itself to a foreground service and continues receiving location
- * updates. When the activity comes back to the foreground, the foreground service stops, and the
+ * For the feature that requires location in the foreground, this sample uses a long-running bound
+ * and started service for location updates. The service is aware of foreground status of this
+ * activity, which is the only bound client in this sample.
+ *
+ * While getting location in the foreground, if the activity ceases to be in the foreground (user
+ * navigates away from the app), the service promotes itself to a foreground service and continues
+ * receiving location updates.
+ *
+ * When the activity comes back to the foreground, the foreground service stops, and the
  * notification associated with that foreground service is removed.
  *
  * While the foreground service notification is displayed, the user has the option to launch the
@@ -71,8 +81,8 @@ import com.google.android.material.snackbar.Snackbar
  */
 class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceChangeListener {
 
-    private var whileInUseLocationServiceBound = false
-    private var allTheTimeTrackingEnabled = false
+    private var foregroundOnlyLocationServiceBound = false
+    private var foregroundAndBackgroundLocationEnabled = false
 
     /* Normally, you use this code to check for Q or higher:
      * Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
@@ -82,30 +92,30 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private val runningQOrLater = BuildCompat.isAtLeastQ()
 
     // Provides location updates for while-in-use feature.
-    private var whileInUseLocationService: WhileInUseLocationService? = null
+    private var foregroundOnlyLocationService: ForegroundOnlyLocationService? = null
 
-    // Listens for location broadcasts from WhileInUseLocationService.
-    private lateinit var whileInUseBroadcastReceiver: WhileInUseBroadcastReceiver
+    // Listens for location broadcasts from ForegroundOnlyLocationService.
+    private lateinit var foregroundOnlyBroadcastReceiver: ForegroundOnlyBroadcastReceiver
 
     private lateinit var sharedPreferences:SharedPreferences
 
-    private lateinit var whileInUseLocationButton: Button
-    private lateinit var allTheTimeLocationButton: Button
+    private lateinit var foregroundOnlyLocationButton: Button
+    private lateinit var foregroundAndBackgroundLocationButton: Button
 
     private lateinit var outputTextView: TextView
 
     // Monitors connection to the while-in-use service.
-    private val whileInUseServiceConnection = object : ServiceConnection {
+    private val foregroundOnlyServiceConnection = object : ServiceConnection {
 
         override fun onServiceConnected(name: ComponentName, service: IBinder) {
-            val binder = service as WhileInUseLocationService.LocalBinder
-            whileInUseLocationService = binder.service
-            whileInUseLocationServiceBound = true
+            val binder = service as ForegroundOnlyLocationService.LocalBinder
+            foregroundOnlyLocationService = binder.service
+            foregroundOnlyLocationServiceBound = true
         }
 
         override fun onServiceDisconnected(name: ComponentName) {
-            whileInUseLocationService = null
-            whileInUseLocationServiceBound = false
+            foregroundOnlyLocationService = null
+            foregroundOnlyLocationServiceBound = false
         }
     }
 
@@ -114,40 +124,41 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
         setContentView(R.layout.activity_main)
 
-        whileInUseBroadcastReceiver = WhileInUseBroadcastReceiver()
+        foregroundOnlyBroadcastReceiver = ForegroundOnlyBroadcastReceiver()
 
         sharedPreferences =
             getSharedPreferences(getString(R.string.preference_file_key), Context.MODE_PRIVATE)
 
-        whileInUseLocationButton = findViewById(R.id.while_in_use_location_button)
-        allTheTimeLocationButton = findViewById(R.id.all_the_time_location_button)
+        foregroundOnlyLocationButton = findViewById(R.id.foreground_only_location_button)
+        foregroundAndBackgroundLocationButton =
+            findViewById(R.id.foreground_and_background_location_button)
         outputTextView = findViewById(R.id.output_text_view)
 
-        whileInUseLocationButton.setOnClickListener {
+        foregroundOnlyLocationButton.setOnClickListener {
 
-            val enabled =
-                sharedPreferences.getBoolean(SharedPreferenceUtil.KEY_WHILE_IN_USE_ENABLED, false)
+            val enabled = sharedPreferences.getBoolean(
+                SharedPreferenceUtil.KEY_FOREGROUND_ONLY_ENABLED, false)
 
             if (enabled) {
-                whileInUseLocationService?.stopTrackingLocation()
+                foregroundOnlyLocationService?.stopTrackingLocation()
             } else {
-                if (whileInUsePermissionApproved()) {
-                    whileInUseLocationService?.startTrackingLocation()
+                if (foregroundPermissionApproved()) {
+                    foregroundOnlyLocationService?.startTrackingLocation()
                         ?: Log.d(TAG, "Service Not Bound")
                 } else {
-                    requestWhileInUsePermissions()
+                    requestForegroundPermissions()
                 }
             }
         }
 
-        allTheTimeLocationButton.setOnClickListener {
+        foregroundAndBackgroundLocationButton.setOnClickListener {
             when {
-                allTheTimeTrackingEnabled -> stopBackgroundTracking()
+                foregroundAndBackgroundLocationEnabled -> stopForegroundAndBackgroundLocation()
                 else -> {
-                    if (allTheTimePermissionApproved()) {
-                        startBackgroundTracking()
+                    if (foregroundAndBackgroundPermissionApproved()) {
+                        startForegroundAndBackgroundLocation()
                     } else {
-                        requestAllTheTimePermissions()
+                        requestForegroundAndBackgroundPermissions()
                     }
                 }
             }
@@ -157,34 +168,35 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     override fun onStart() {
         super.onStart()
 
-        updateWhileInUseButtonsState(
-            sharedPreferences.getBoolean(SharedPreferenceUtil.KEY_WHILE_IN_USE_ENABLED, false)
+        updateForegroundOnlyButtonsState(
+            sharedPreferences.getBoolean(SharedPreferenceUtil.KEY_FOREGROUND_ONLY_ENABLED, false)
         )
         sharedPreferences.registerOnSharedPreferenceChangeListener(this)
 
-        val serviceIntent = Intent(this, WhileInUseLocationService::class.java)
-        bindService(serviceIntent, whileInUseServiceConnection, Context.BIND_AUTO_CREATE)
+        val serviceIntent = Intent(this, ForegroundOnlyLocationService::class.java)
+        bindService(serviceIntent, foregroundOnlyServiceConnection, Context.BIND_AUTO_CREATE)
     }
 
     override fun onResume() {
         super.onResume()
         LocalBroadcastManager.getInstance(this).registerReceiver(
-            whileInUseBroadcastReceiver,
-            IntentFilter(WhileInUseLocationService.ACTION_NEW_WHILE_IN_USE_LOCATION_BROADCAST)
+            foregroundOnlyBroadcastReceiver,
+            IntentFilter(
+                ForegroundOnlyLocationService.ACTION_NEW_FOREGROUND_ONLY_LOCATION_BROADCAST)
         )
     }
 
     override fun onPause() {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(
-            whileInUseBroadcastReceiver
+            foregroundOnlyBroadcastReceiver
         )
         super.onPause()
     }
 
     override fun onStop() {
-        if (whileInUseLocationServiceBound) {
-            unbindService(whileInUseServiceConnection)
-            whileInUseLocationServiceBound = false
+        if (foregroundOnlyLocationServiceBound) {
+            unbindService(foregroundOnlyServiceConnection)
+            foregroundOnlyLocationServiceBound = false
         }
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(this)
 
@@ -193,24 +205,22 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences, key: String) {
         // Updates button states if new while in use location is added to SharedPreferences.
-        if (key == SharedPreferenceUtil.KEY_WHILE_IN_USE_ENABLED) {
-            updateWhileInUseButtonsState(
-                sharedPreferences.getBoolean(SharedPreferenceUtil.KEY_WHILE_IN_USE_ENABLED, false)
+        if (key == SharedPreferenceUtil.KEY_FOREGROUND_ONLY_ENABLED) {
+            updateForegroundOnlyButtonsState(sharedPreferences.getBoolean(
+                SharedPreferenceUtil.KEY_FOREGROUND_ONLY_ENABLED, false)
             )
         }
     }
 
-    private fun whileInUsePermissionApproved(): Boolean {
+    private fun foregroundPermissionApproved(): Boolean {
         return PackageManager.PERMISSION_GRANTED == ActivityCompat.checkSelfPermission(
             this,
             Manifest.permission.ACCESS_FINE_LOCATION
         )
     }
 
-    private fun allTheTimePermissionApproved(): Boolean {
-        val fineLocationApproved = ActivityCompat.checkSelfPermission(
-            this, Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
+    private fun foregroundAndBackgroundPermissionApproved(): Boolean {
+        val foregroundLocationApproved = foregroundPermissionApproved()
 
         // TODO: Step 3.3, Add permission check for background permissions.
         val backgroundPermissionApproved =
@@ -222,12 +232,12 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
                 true
             }
 
-        return fineLocationApproved && backgroundPermissionApproved
+        return foregroundLocationApproved && backgroundPermissionApproved
     }
 
-    private fun requestWhileInUsePermissions() {
+    private fun requestForegroundPermissions() {
 
-        val provideRationale = whileInUsePermissionApproved()
+        val provideRationale = foregroundPermissionApproved()
 
         // If the user denied a previous request, but didn't check "Don't ask again", provide
         // additional rationale.
@@ -242,22 +252,22 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
                     ActivityCompat.requestPermissions(
                         this@MainActivity,
                         arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                        REQUEST_WHILE_IN_USE_PERMISSIONS_REQUEST_CODE
+                        REQUEST_FOREGROUND_ONLY_PERMISSIONS_REQUEST_CODE
                     )
                 }
                 .show()
         } else {
-            Log.d(TAG, "Request while in use permission")
+            Log.d(TAG, "Request foreground only permission")
             ActivityCompat.requestPermissions(
                 this@MainActivity,
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                REQUEST_WHILE_IN_USE_PERMISSIONS_REQUEST_CODE
+                REQUEST_FOREGROUND_ONLY_PERMISSIONS_REQUEST_CODE
             )
         }
     }
 
-    private fun requestAllTheTimePermissions() {
-        val provideRationale = allTheTimePermissionApproved()
+    private fun requestForegroundAndBackgroundPermissions() {
+        val provideRationale = foregroundAndBackgroundPermissionApproved()
 
         val permissionRequests = arrayListOf(Manifest.permission.ACCESS_FINE_LOCATION)
         // TODO: Step 3.4, Add another entry to permission request array.
@@ -278,16 +288,16 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
                     ActivityCompat.requestPermissions(
                         this@MainActivity,
                         permissionRequests.toTypedArray(),
-                        REQUEST_ALL_THE_TIME_REQUEST_CODE
+                        REQUEST_FOREGROUND_AND_BACKGROUND_REQUEST_CODE
                     )
                 }
                 .show()
         } else {
-            Log.d(TAG, "Request all the time permission")
+            Log.d(TAG, "Request foreground and background permission")
             ActivityCompat.requestPermissions(
                 this@MainActivity,
                 permissionRequests.toTypedArray(),
-                REQUEST_ALL_THE_TIME_REQUEST_CODE
+                REQUEST_FOREGROUND_AND_BACKGROUND_REQUEST_CODE
             )
         }
     }
@@ -300,7 +310,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         Log.d(TAG, "onRequestPermissionResult")
 
         when (requestCode) {
-            REQUEST_WHILE_IN_USE_PERMISSIONS_REQUEST_CODE -> when {
+            REQUEST_FOREGROUND_ONLY_PERMISSIONS_REQUEST_CODE -> when {
                 grantResults.isEmpty() ->
                     // If user interaction was interrupted, the permission request
                     // is cancelled and you receive empty arrays.
@@ -308,11 +318,11 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
                 grantResults[0] == PackageManager.PERMISSION_GRANTED ->
                     // Permission was granted.
-                    whileInUseLocationService?.startTrackingLocation()
+                    foregroundOnlyLocationService?.startTrackingLocation()
 
                 else -> {
                     // Permission denied.
-                    updateWhileInUseButtonsState(false)
+                    updateForegroundOnlyButtonsState(false)
 
                     Snackbar.make(
                         findViewById(R.id.activity_main),
@@ -336,25 +346,28 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
                 }
             }
 
-            REQUEST_ALL_THE_TIME_REQUEST_CODE -> {
+            REQUEST_FOREGROUND_AND_BACKGROUND_REQUEST_CODE -> {
 
-                var allTheTimeApproved = grantResults[0] == PackageManager.PERMISSION_GRANTED
+                var foregroundAndBackgroundLocationApproved =
+                    grantResults[0] == PackageManager.PERMISSION_GRANTED
 
                 // TODO: Step 3.5, For Q, check if background permissions approved in request code.
                 if(runningQOrLater) {
-                    allTheTimeApproved =
-                        allTheTimeApproved && (grantResults[1] == PackageManager.PERMISSION_GRANTED)
+                    foregroundAndBackgroundLocationApproved =
+                        foregroundAndBackgroundLocationApproved &&
+                                (grantResults[1] == PackageManager.PERMISSION_GRANTED)
                 }
 
                 // If user interaction was interrupted, the permission request
                 // is cancelled and you receive empty arrays.
                 when {
                     grantResults.isEmpty() -> Log.d(TAG, "User interaction was cancelled.")
-                    // TODO: Step 3.6, review method call to track background.
-                    allTheTimeApproved -> startBackgroundTracking()
+                    // TODO: Step 3.6, review method call for foreground and background location.
+                    foregroundAndBackgroundLocationApproved ->
+                        startForegroundAndBackgroundLocation()
                     else -> {
                         // Permission denied.
-                        updateWhileInUseButtonsState(false)
+                        updateForegroundOnlyButtonsState(false)
 
                         Snackbar.make(
                             findViewById(R.id.activity_main),
@@ -381,35 +394,37 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         }
     }
 
-    private fun updateWhileInUseButtonsState(trackingLocation: Boolean) {
+    private fun updateForegroundOnlyButtonsState(trackingLocation: Boolean) {
         if (trackingLocation) {
-            whileInUseLocationButton.text = getString(R.string.disable_while_in_use_location)
+            foregroundOnlyLocationButton.text = getString(R.string.disable_foreground_only_location)
         } else {
-            whileInUseLocationButton.text = getString(R.string.enable_while_in_use_location)
+            foregroundOnlyLocationButton.text = getString(R.string.enable_foreground_only_location)
         }
     }
 
-    private fun updateAllTheTimeButtonsState() {
-        if (allTheTimeTrackingEnabled) {
-            allTheTimeLocationButton.text = getString(R.string.disable_all_the_time_location)
+    private fun updateForegroundAndBackgroundButtonsState() {
+        if (foregroundAndBackgroundLocationEnabled) {
+            foregroundAndBackgroundLocationButton.text
+            getString(R.string.disable_foreground_and_background_location)
         } else {
-            allTheTimeLocationButton.text = getString(R.string.enable_all_the_time_location)
+            foregroundAndBackgroundLocationButton.text =
+                getString(R.string.enable_foreground_and_background_location)
         }
     }
 
-    private fun startBackgroundTracking() {
-        Log.d(TAG, "startBackgroundTracking()")
-        allTheTimeTrackingEnabled = true
-        updateAllTheTimeButtonsState()
-        logResultsToScreen("All the time location tracking enabled.")
+    private fun startForegroundAndBackgroundLocation() {
+        Log.d(TAG, "startForegroundAndBackgroundLocation()")
+        foregroundAndBackgroundLocationEnabled = true
+        updateForegroundAndBackgroundButtonsState()
+        logResultsToScreen("Foreground and background location enabled.")
         // TODO: Add logic.
     }
 
-    private fun stopBackgroundTracking() {
-        Log.d(TAG, "stopBackgroundTracking()")
-        allTheTimeTrackingEnabled = false
-        updateAllTheTimeButtonsState()
-        logResultsToScreen("All the time location tracking disabled.")
+    private fun stopForegroundAndBackgroundLocation() {
+        Log.d(TAG, "stopForegroundAndBackgroundLocation()")
+        foregroundAndBackgroundLocationEnabled = false
+        updateForegroundAndBackgroundButtonsState()
+        logResultsToScreen("Foreground and background location disabled.")
         // TODO: Add logic.
     }
 
@@ -419,17 +434,17 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     }
 
     /**
-     * Receiver for location broadcasts from [WhileInUseLocationService].
+     * Receiver for location broadcasts from [ForegroundOnlyLocationService].
      */
-    private inner class WhileInUseBroadcastReceiver : BroadcastReceiver() {
+    private inner class ForegroundOnlyBroadcastReceiver : BroadcastReceiver() {
 
         override fun onReceive(context: Context, intent: Intent) {
             val location = intent.getParcelableExtra<Location>(
-                WhileInUseLocationService.EXTRA_LOCATION
+                ForegroundOnlyLocationService.EXTRA_LOCATION
             )
 
             if (location != null) {
-                logResultsToScreen("While-in-use location: ${location.toText()}")
+                logResultsToScreen("Foreground only location: ${location.toText()}")
             }
         }
     }
@@ -437,7 +452,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     companion object {
         private val TAG = MainActivity::class.java.simpleName
 
-        private const val REQUEST_ALL_THE_TIME_REQUEST_CODE = 56
-        private const val REQUEST_WHILE_IN_USE_PERMISSIONS_REQUEST_CODE = 34
+        private const val REQUEST_FOREGROUND_AND_BACKGROUND_REQUEST_CODE = 56
+        private const val REQUEST_FOREGROUND_ONLY_PERMISSIONS_REQUEST_CODE = 34
     }
 }
