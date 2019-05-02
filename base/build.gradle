@@ -21,12 +21,12 @@ apply plugin: 'kotlin-android-extensions'
 
 android {
     // TODO: Step 2.1, Target Q.
-    compileSdkVersion 'android-Q'
-    buildToolsVersion "29.0.0 rc1"
+    compileSdkVersion 28
+    buildToolsVersion "28.0.3"
     defaultConfig {
         applicationId "com.example.android.whileinuselocation"
         minSdkVersion 26
-        targetSdkVersion 'Q'
+        targetSdkVersion 28
         versionCode 1
         versionName "1.0"
     }

@@ -223,14 +223,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         val foregroundLocationApproved = foregroundPermissionApproved()
 
         // TODO: Step 3.3, Add check for background permission.
-        val backgroundPermissionApproved =
-            if (runningQOrLater) {
-                ActivityCompat.checkSelfPermission(
-                    this, Manifest.permission.ACCESS_BACKGROUND_LOCATION
-                ) == PackageManager.PERMISSION_GRANTED
-            } else {
-                true
-            }
+        val backgroundPermissionApproved = true
 
         return foregroundLocationApproved && backgroundPermissionApproved
     }
@@ -271,9 +264,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
         val permissionRequests = arrayListOf(Manifest.permission.ACCESS_FINE_LOCATION)
         // TODO: Step 3.4, Add another entry to permission request array.
-        if (runningQOrLater) {
-            permissionRequests.add(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-        }
+
 
         // If the user denied a previous request, but didn't check "Don't ask again", provide
         // additional rationale.
@@ -352,11 +343,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
                     grantResults[0] == PackageManager.PERMISSION_GRANTED
 
                 // TODO: Step 3.5, For Q, check if background permissions approved in request code.
-                if(runningQOrLater) {
-                    foregroundAndBackgroundLocationApproved =
-                        foregroundAndBackgroundLocationApproved &&
-                                (grantResults[1] == PackageManager.PERMISSION_GRANTED)
-                }
+
 
                 // If user interaction was interrupted, the permission request
                 // is cancelled and you receive empty arrays.

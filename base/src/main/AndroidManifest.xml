@@ -24,7 +24,6 @@
 
     <!-- Required in Q+ for access to background location. -->
     <!-- TODO: 3.1, Add background uses-permission to manifest. -->
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
     <application
             android:allowBackup="true"
@@ -45,8 +44,7 @@
         <service
             android:name="com.example.android.whileinuselocation.ForegroundOnlyLocationService"
             android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="location" />
+            android:exported="false" />
     </application>
 
 </manifest>
