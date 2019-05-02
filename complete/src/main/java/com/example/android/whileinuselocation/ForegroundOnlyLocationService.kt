@@ -212,7 +212,7 @@ class ForegroundOnlyLocationService : Service() {
         currentLocation = location
 
         // Notify anyone listening for broadcasts about the new location.
-        val intent = Intent(ACTION_NEW_FOREGROUND_ONLY_LOCATION_BROADCAST)
+        val intent = Intent(ACTION_FOREGROUND_ONLY_LOCATION_BROADCAST)
         intent.putExtra(EXTRA_LOCATION, location)
         LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(intent)
 
@@ -306,8 +306,8 @@ class ForegroundOnlyLocationService : Service() {
 
         private const val PACKAGE_NAME = "com.example.android.whileinuselocation"
 
-        internal const val ACTION_NEW_FOREGROUND_ONLY_LOCATION_BROADCAST =
-            "$PACKAGE_NAME.action.NEW_WHILE_IN_USE_LOCATION_BROADCAST"
+        internal const val ACTION_FOREGROUND_ONLY_LOCATION_BROADCAST =
+            "$PACKAGE_NAME.action.FOREGROUND_ONLY_LOCATION_BROADCAST"
 
         internal const val EXTRA_LOCATION = "$PACKAGE_NAME.extra.LOCATION"
 

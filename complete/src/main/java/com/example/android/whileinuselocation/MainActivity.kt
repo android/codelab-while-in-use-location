@@ -182,7 +182,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         LocalBroadcastManager.getInstance(this).registerReceiver(
             foregroundOnlyBroadcastReceiver,
             IntentFilter(
-                ForegroundOnlyLocationService.ACTION_NEW_FOREGROUND_ONLY_LOCATION_BROADCAST)
+                ForegroundOnlyLocationService.ACTION_FOREGROUND_ONLY_LOCATION_BROADCAST)
         )
     }
 
@@ -222,7 +222,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private fun foregroundAndBackgroundPermissionApproved(): Boolean {
         val foregroundLocationApproved = foregroundPermissionApproved()
 
-        // TODO: Step 3.3, Add permission check for background permissions.
+        // TODO: Step 3.3, Add check for background permission.
         val backgroundPermissionApproved =
             if (runningQOrLater) {
                 ActivityCompat.checkSelfPermission(
@@ -404,8 +404,8 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     private fun updateForegroundAndBackgroundButtonsState() {
         if (foregroundAndBackgroundLocationEnabled) {
-            foregroundAndBackgroundLocationButton.text
-            getString(R.string.disable_foreground_and_background_location)
+            foregroundAndBackgroundLocationButton.text =
+                getString(R.string.disable_foreground_and_background_location)
         } else {
             foregroundAndBackgroundLocationButton.text =
                 getString(R.string.enable_foreground_and_background_location)
