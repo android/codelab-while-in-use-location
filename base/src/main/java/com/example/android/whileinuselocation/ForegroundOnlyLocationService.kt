@@ -175,34 +175,21 @@ class ForegroundOnlyLocationService : Service() {
         Log.d(TAG, "stopTrackingLocation()")
 
         try {
-            val task = fusedLocationProviderClient.removeLocationUpdates(locationCallback)
+            val removeTask = fusedLocationProviderClient.removeLocationUpdates(locationCallback)
+            removeTask.addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    Log.d(TAG, "Location Callback removed.")
+                    stopSelf()
+                } else {
+                    Log.d(TAG, "Failed to remove Location Callback.")
+                }
+            }
 
             SharedPreferenceUtil.saveLocationTrackingPref(this, false)
 
-            if (task.isSuccessful) {
-                stopSelf()
-            } else {
-                Log.e(TAG, "Failed to remove location callback.")
-            }
         } catch (unlikely: SecurityException) {
             SharedPreferenceUtil.saveLocationTrackingPref(this, true)
             Log.e(TAG, "Lost location permissions. Couldn't remove updates. $unlikely")
-        }
-    }
-
-    // TODO: Remove in next CL (not needed but I want it tracked in CLs).
-    private fun requestLastLocation() {
-        try {
-            fusedLocationProviderClient.lastLocation.addOnCompleteListener { task ->
-                if (task.isSuccessful && task.result != null) {
-                    val location: Location = task.result as Location
-                    onNewLocation(location)
-                } else {
-                    Log.d(TAG, "Failed to get location.")
-                }
-            }
-        } catch (unlikely: SecurityException) {
-            Log.e(TAG, "Lost location permission.$unlikely")
         }
     }
 
