@@ -404,7 +404,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         foregroundAndBackgroundLocationEnabled = true
         updateForegroundAndBackgroundButtonsState()
         logResultsToScreen("Foreground and background location enabled.")
-        // TODO: Add logic.
+        // TODO: Add your specific background tracking logic here (start tracking).
     }
 
     private fun stopForegroundAndBackgroundLocation() {
@@ -412,7 +412,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         foregroundAndBackgroundLocationEnabled = false
         updateForegroundAndBackgroundButtonsState()
         logResultsToScreen("Foreground and background location disabled.")
-        // TODO: Add logic.
+        // TODO: Add your specific background tracking logic here (stop tracking).
     }
 
     private fun logResultsToScreen(output:String) {
