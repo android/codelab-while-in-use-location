@@ -84,12 +84,9 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private var foregroundOnlyLocationServiceBound = false
     private var foregroundAndBackgroundLocationEnabled = false
 
-    /* Normally, you use this code to check for Q or higher:
-     * Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-     * However, because Q hasn't been released to production yet, we use isAtLeastQ().
-     */
     // TODO: Step 3.2, review code checks for devices with Q.
-    private val runningQOrLater = BuildCompat.isAtLeastQ()
+    private val runningQOrLater =
+        android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q
 
     // Provides location updates for while-in-use feature.
     private var foregroundOnlyLocationService: ForegroundOnlyLocationService? = null
