@@ -50,7 +50,7 @@ import com.google.android.material.snackbar.Snackbar
  *  There is another feature that does require location in both the foreground and background to
  *  show the proper way to get location for that scenario.
  *
- *  Note: Users have three options in Q+ regarding location:
+ *  Note: Users have three options in Android 10+ regarding location:
  *
  *  * Allow all the time
  *  * Allow while app is in use, i.e., while app is in foreground
@@ -61,8 +61,8 @@ import com.google.android.material.snackbar.Snackbar
  * that permission in context and handle it gracefully if the user denies the request or only
  * allows "while-in-use".
  *
- * "Q" also now requires developers to specify foreground service type in the manifest (in this
- * case, "location").
+ * Android 10 also now requires developers to specify foreground service type in the manifest (in
+ * this case, "location").
  *
  * For the feature that requires location in the foreground, this sample uses a long-running bound
  * and started service for location updates. The service is aware of foreground status of this
@@ -84,7 +84,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private var foregroundOnlyLocationServiceBound = false
     private var foregroundAndBackgroundLocationEnabled = false
 
-    // TODO: Step 3.2, review code checks for devices with Q.
+    // TODO: Step 3.2, add check for devices with Android 10.
     private val runningQOrLater =
         android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q
 
@@ -348,7 +348,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
                 var foregroundAndBackgroundLocationApproved =
                     grantResults[0] == PackageManager.PERMISSION_GRANTED
 
-                // TODO: Step 3.5, For Q, check if background permissions approved in request code.
+                // TODO: Step 3.5, For Android 10, check if background permissions approved in request code.
                 if(runningQOrLater) {
                     foregroundAndBackgroundLocationApproved =
                         foregroundAndBackgroundLocationApproved &&

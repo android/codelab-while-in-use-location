@@ -22,7 +22,7 @@
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
 
-    <!-- Required in Q+ for access to background location. -->
+    <!-- Required in 10+ for access to background location. -->
     <!-- TODO: 3.1, Add background uses-permission to manifest. -->
 
     <application
@@ -39,7 +39,7 @@
             </intent-filter>
         </activity>
 
-        <!-- Foreground services in Q+ require type. -->
+        <!-- Foreground services in 10+ require type. -->
         <!-- TODO: 2.2, Add foreground service type. -->
         <service
             android:name="com.example.android.whileinuselocation.ForegroundOnlyLocationService"

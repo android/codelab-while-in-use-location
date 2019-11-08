@@ -20,7 +20,7 @@ apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 
 android {
-    // TODO: Step 2.1, Target Q.
+    // TODO: Step 2.1, Target Android 10.
     compileSdkVersion 28
     buildToolsVersion "28.0.3"
     defaultConfig {
