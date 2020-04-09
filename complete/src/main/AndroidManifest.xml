@@ -20,11 +20,8 @@
     <!-- Required for foreground services on P+. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
+    <!-- TODO: Step 1.0, Review Permissions: Specify permissions you are using. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-
-    <!-- Required in Android 10+ for access to background location. -->
-    <!-- TODO: 3.1, Add background uses-permission to manifest. -->
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
     <application
             android:allowBackup="true"
