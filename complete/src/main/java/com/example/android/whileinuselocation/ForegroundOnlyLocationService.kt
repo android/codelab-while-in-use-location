@@ -68,7 +68,7 @@ class ForegroundOnlyLocationService : Service() {
     // updates, the priority, etc.
     private lateinit var locationRequest: LocationRequest
 
-    // LocationCallback - Called with FusedLocationProviderClient has a new Location.
+    // LocationCallback - Called when FusedLocationProviderClient has a new Location.
     private lateinit var locationCallback: LocationCallback
 
     // Used only for local storage of the last known location. Usually, this would be saved to your
@@ -88,16 +88,17 @@ class ForegroundOnlyLocationService : Service() {
         locationRequest = LocationRequest().apply {
             // Sets the desired interval for active location updates. This interval is inexact. You
             // may not receive updates at all if no location sources are available, or you may
-            // receive them slower than requested. You may also receive updates faster than
-            // requested if other applications are requesting location at a faster interval.
+            // receive them less frequently than requested. You may also receive updates more
+            // frequently than requested if other applications are requesting location at a more
+            // frequent interval.
             //
-            // IMPORTANT NOTE: Apps running on "O" devices (regardless of targetSdkVersion) may
-            // receive updates less frequently than this interval when the app is no longer in the
-            // foreground.
+            // IMPORTANT NOTE: Apps running on Android 8.0 and higher devices (regardless of
+            // targetSdkVersion) may receive updates less frequently than this interval when the app
+            // is no longer in the foreground.
             interval = TimeUnit.SECONDS.toMillis(60)
 
             // Sets the fastest rate for active location updates. This interval is exact, and your
-            // application will never receive updates faster than this value.
+            // application will never receive updates more frequently than this value.
             fastestInterval = TimeUnit.SECONDS.toMillis(30)
 
             // Sets the maximum time when batched location updates are delivered. Updates may be
@@ -107,7 +108,7 @@ class ForegroundOnlyLocationService : Service() {
             priority = LocationRequest.PRIORITY_HIGH_ACCURACY
         }
 
-        // TODO: Step 1.3, Initialize the LocationCallback.
+        // TODO: Step 1.4, Initialize the LocationCallback.
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult?) {
                 super.onLocationResult(locationResult)
@@ -116,7 +117,7 @@ class ForegroundOnlyLocationService : Service() {
 
                     // Normally, you want to save a new location to a database. We are simplifying
                     // things a bit and just saving it as a local variable, as we only need it again
-                    // if a Notification is created (when user navigates away from app).
+                    // if a Notification is created (when the user navigates away from app).
                     currentLocation = locationResult.lastLocation
 
                     // Notify our Activity that a new location was added. Again, if this was a
@@ -215,7 +216,7 @@ class ForegroundOnlyLocationService : Service() {
         startService(Intent(applicationContext, ForegroundOnlyLocationService::class.java))
 
         try {
-            // TODO: Step 1.4, Subscribe to location changes.
+            // TODO: Step 1.5, Subscribe to location changes.
             fusedLocationProviderClient.requestLocationUpdates(
                 locationRequest, locationCallback, Looper.myLooper())
         } catch (unlikely: SecurityException) {
@@ -228,7 +229,7 @@ class ForegroundOnlyLocationService : Service() {
         Log.d(TAG, "unsubscribeToLocationUpdates()")
 
         try {
-            // TODO: Step 1.5, Unsubscribe to location changes.
+            // TODO: Step 1.6, Unsubscribe to location changes.
             val removeTask = fusedLocationProviderClient.removeLocationUpdates(locationCallback)
             removeTask.addOnCompleteListener { task ->
                 if (task.isSuccessful) {
@@ -261,7 +262,7 @@ class ForegroundOnlyLocationService : Service() {
         //      4. Build and issue the notification
 
         // 0. Get data
-        val mainNotificationText = location?.toText() ?: "No current location"
+        val mainNotificationText = location?.toText() ?: getString(R.string.no_location_text)
         val titleText = getString(R.string.app_name)
 
         // 1. Create Notification Channel for O+ and beyond devices (26+).

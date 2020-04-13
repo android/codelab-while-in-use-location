@@ -32,4 +32,5 @@
     <string name="location_updated">Location Updated: %1$s</string>
 
     <string name="preference_file_key">com.example.android.while_in_use_location.PREFERENCE_FILE_KEY</string>
+    <string name="no_location_text">No current location</string>
 </resources>
