@@ -202,7 +202,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     // TODO: Step 1.0, Review Permissions: Method requests permissions.
     private fun requestForegroundPermissions() {
-        val provideRationale = foregroundPermissionApproved()
+        val provideRationale = shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION)
 
         // If the user denied a previous request, but didn't check "Don't ask again", provide
         // additional rationale.
