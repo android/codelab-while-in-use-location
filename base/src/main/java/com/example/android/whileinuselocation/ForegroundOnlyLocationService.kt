@@ -28,10 +28,9 @@ import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import android.os.Looper
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import android.util.Log
-
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -85,7 +84,6 @@ class ForegroundOnlyLocationService : Service() {
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this)
 
         // TODO: Step 1.3, Create a LocationRequest.
-
 
         // TODO: Step 1.4, Initialize the LocationCallback.
 
@@ -178,7 +176,6 @@ class ForegroundOnlyLocationService : Service() {
 
         try {
             // TODO: Step 1.6, Unsubscribe to location changes.
-
 
             SharedPreferenceUtil.saveLocationTrackingPref(this, false)
 
