@@ -22,7 +22,7 @@ import androidx.core.content.edit
 /**
  * Returns the `location` object as a human readable string.
  */
-fun Location?.toText():String {
+fun Location?.toText(): String {
     return if (this != null) {
         "($latitude, $longitude)"
     } else {

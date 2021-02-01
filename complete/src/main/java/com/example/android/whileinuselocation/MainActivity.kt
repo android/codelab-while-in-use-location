@@ -16,7 +16,6 @@
 package com.example.android.whileinuselocation
 
 import android.Manifest
-import android.content.pm.PackageManager
 import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
@@ -24,19 +23,18 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.ServiceConnection
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.location.Location
 import android.net.Uri
-import android.os.IBinder
 import android.os.Bundle
+import android.os.IBinder
 import android.provider.Settings
 import android.util.Log
 import android.widget.Button
 import android.widget.TextView
-
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
-
 import com.google.android.material.snackbar.Snackbar
 
 private const val TAG = "MainActivity"
@@ -92,7 +90,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     // Listens for location broadcasts from ForegroundOnlyLocationService.
     private lateinit var foregroundOnlyBroadcastReceiver: ForegroundOnlyBroadcastReceiver
 
-    private lateinit var sharedPreferences:SharedPreferences
+    private lateinit var sharedPreferences: SharedPreferences
 
     private lateinit var foregroundOnlyLocationButton: Button
 
@@ -133,14 +131,13 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             if (enabled) {
                 foregroundOnlyLocationService?.unsubscribeToLocationUpdates()
             } else {
-
-            // TODO: Step 1.0, Review Permissions: Checks and requests if needed.
-            if (foregroundPermissionApproved()) {
-                foregroundOnlyLocationService?.subscribeToLocationUpdates()
-                    ?: Log.d(TAG, "Service Not Bound")
-            } else {
-                requestForegroundPermissions()
-            }
+                // TODO: Step 1.0, Review Permissions: Checks and requests if needed.
+                if (foregroundPermissionApproved()) {
+                    foregroundOnlyLocationService?.subscribeToLocationUpdates()
+                        ?: Log.d(TAG, "Service Not Bound")
+                } else {
+                    requestForegroundPermissions()
+                }
             }
         }
     }
@@ -245,11 +242,9 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
                     // If user interaction was interrupted, the permission request
                     // is cancelled and you receive empty arrays.
                     Log.d(TAG, "User interaction was cancelled.")
-
                 grantResults[0] == PackageManager.PERMISSION_GRANTED ->
                     // Permission was granted.
                     foregroundOnlyLocationService?.subscribeToLocationUpdates()
-
                 else -> {
                     // Permission denied.
                     updateButtonState(false)
@@ -286,7 +281,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         }
     }
 
-    private fun logResultsToScreen(output:String) {
+    private fun logResultsToScreen(output: String) {
         val outputWithPreviousLogs = "$output\n${outputTextView.text}"
         outputTextView.text = outputWithPreviousLogs
     }
