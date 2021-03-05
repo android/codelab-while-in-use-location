@@ -84,7 +84,7 @@ class ForegroundOnlyLocationService : Service() {
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this)
 
         // TODO: Step 1.3, Create a LocationRequest.
-        locationRequest = LocationRequest().apply {
+        locationRequest = LocationRequest.create().apply {
             // Sets the desired interval for active location updates. This interval is inexact. You
             // may not receive updates at all if no location sources are available, or you may
             // receive them less frequently than requested. You may also receive updates more
@@ -109,33 +109,28 @@ class ForegroundOnlyLocationService : Service() {
 
         // TODO: Step 1.4, Initialize the LocationCallback.
         locationCallback = object : LocationCallback() {
-            override fun onLocationResult(locationResult: LocationResult?) {
+            override fun onLocationResult(locationResult: LocationResult) {
                 super.onLocationResult(locationResult)
 
-                if (locationResult?.lastLocation != null) {
+                // Normally, you want to save a new location to a database. We are simplifying
+                // things a bit and just saving it as a local variable, as we only need it again
+                // if a Notification is created (when the user navigates away from app).
+                currentLocation = locationResult.lastLocation
 
-                    // Normally, you want to save a new location to a database. We are simplifying
-                    // things a bit and just saving it as a local variable, as we only need it again
-                    // if a Notification is created (when the user navigates away from app).
-                    currentLocation = locationResult.lastLocation
+                // Notify our Activity that a new location was added. Again, if this was a
+                // production app, the Activity would be listening for changes to a database
+                // with new locations, but we are simplifying things a bit to focus on just
+                // learning the location side of things.
+                val intent = Intent(ACTION_FOREGROUND_ONLY_LOCATION_BROADCAST)
+                intent.putExtra(EXTRA_LOCATION, currentLocation)
+                LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(intent)
 
-                    // Notify our Activity that a new location was added. Again, if this was a
-                    // production app, the Activity would be listening for changes to a database
-                    // with new locations, but we are simplifying things a bit to focus on just
-                    // learning the location side of things.
-                    val intent = Intent(ACTION_FOREGROUND_ONLY_LOCATION_BROADCAST)
-                    intent.putExtra(EXTRA_LOCATION, currentLocation)
-                    LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(intent)
-
-                    // Updates notification content if this service is running as a foreground
-                    // service.
-                    if (serviceRunningInForeground) {
-                        notificationManager.notify(
-                            NOTIFICATION_ID,
-                            generateNotification(currentLocation))
-                    }
-                } else {
-                    Log.d(TAG, "Location missing in callback.")
+                // Updates notification content if this service is running as a foreground
+                // service.
+                if (serviceRunningInForeground) {
+                    notificationManager.notify(
+                        NOTIFICATION_ID,
+                        generateNotification(currentLocation))
                 }
             }
         }
@@ -217,7 +212,7 @@ class ForegroundOnlyLocationService : Service() {
         try {
             // TODO: Step 1.5, Subscribe to location changes.
             fusedLocationProviderClient.requestLocationUpdates(
-                locationRequest, locationCallback, Looper.myLooper())
+                locationRequest, locationCallback, Looper.getMainLooper())
         } catch (unlikely: SecurityException) {
             SharedPreferenceUtil.saveLocationTrackingPref(this, false)
             Log.e(TAG, "Lost location permissions. Couldn't remove updates. $unlikely")
