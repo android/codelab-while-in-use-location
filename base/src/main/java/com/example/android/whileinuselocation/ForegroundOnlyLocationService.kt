@@ -103,7 +103,7 @@ class ForegroundOnlyLocationService : Service() {
         return START_NOT_STICKY
     }
 
-    override fun onBind(intent: Intent): IBinder? {
+    override fun onBind(intent: Intent): IBinder {
         Log.d(TAG, "onBind()")
 
         // MainActivity (client) comes into foreground and binds to service, so the service can
