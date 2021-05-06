@@ -141,9 +141,12 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             sharedPreferences.getBoolean(SharedPreferenceUtil.KEY_FOREGROUND_ENABLED, false)
         )
         sharedPreferences.registerOnSharedPreferenceChangeListener(this)
-
-        val serviceIntent = Intent(this, ForegroundOnlyLocationService::class.java)
-        bindService(serviceIntent, foregroundOnlyServiceConnection, Context.BIND_AUTO_CREATE)
+        
+        bindService(
+            Intent(this, ForegroundOnlyLocationService::class.java),
+            foregroundOnlyServiceConnection,
+            Context.BIND_AUTO_CREATE
+        )
     }
 
     override fun onResume() {
@@ -226,6 +229,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         permissions: Array<String>,
         grantResults: IntArray
     ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         Log.d(TAG, "onRequestPermissionResult")
 
         when (requestCode) {
@@ -250,15 +254,15 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
                     )
                         .setAction(R.string.settings) {
                             // Build intent that displays the App settings screen.
-                            val intent = Intent()
-                            intent.action = Settings.ACTION_APPLICATION_DETAILS_SETTINGS
-                            val uri = Uri.fromParts(
-                                "package",
-                                BuildConfig.LIBRARY_PACKAGE_NAME,
-                                null
-                            )
-                            intent.data = uri
-                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            val intent = Intent().apply {
+                                action = Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                                data = Uri.fromParts(
+                                    "package",
+                                    BuildConfig.LIBRARY_PACKAGE_NAME,
+                                    null
+                                )
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
                             startActivity(intent)
                         }
                         .show()
@@ -268,12 +272,10 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     }
 
     private fun updateButtonState(trackingLocation: Boolean) {
-        with(binding) {
-            if (trackingLocation) {
-                foregroundOnlyLocationButton.text = getString(R.string.stop_location_updates_button_text)
-            } else {
-                foregroundOnlyLocationButton.text = getString(R.string.start_location_updates_button_text)
-            }
+        binding.foregroundOnlyLocationButton.text = if (trackingLocation) {
+            getString(R.string.stop_location_updates_button_text)
+        } else {
+            getString(R.string.start_location_updates_button_text)
         }
     }
 
