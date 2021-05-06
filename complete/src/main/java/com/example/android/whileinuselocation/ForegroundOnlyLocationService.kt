@@ -121,9 +121,11 @@ class ForegroundOnlyLocationService : Service() {
                 // production app, the Activity would be listening for changes to a database
                 // with new locations, but we are simplifying things a bit to focus on just
                 // learning the location side of things.
-                val intent = Intent(ACTION_FOREGROUND_ONLY_LOCATION_BROADCAST)
-                intent.putExtra(EXTRA_LOCATION, currentLocation)
-                LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(intent)
+                LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
+                    Intent(ACTION_FOREGROUND_ONLY_LOCATION_BROADCAST).apply {
+                        putExtra(EXTRA_LOCATION, currentLocation)
+                    }
+                )
 
                 // Updates notification content if this service is running as a foreground
                 // service.
@@ -181,8 +183,10 @@ class ForegroundOnlyLocationService : Service() {
         // we do nothing.
         if (!configurationChange && SharedPreferenceUtil.getLocationTrackingPref(this)) {
             Log.d(TAG, "Start foreground service")
-            val notification = generateNotification(currentLocation)
-            startForeground(NOTIFICATION_ID, notification)
+            startForeground(
+                NOTIFICATION_ID,
+                generateNotification(currentLocation)
+            )
             serviceRunningInForeground = true
         }
 
@@ -212,7 +216,10 @@ class ForegroundOnlyLocationService : Service() {
         try {
             // TODO: Step 1.5, Subscribe to location changes.
             fusedLocationProviderClient.requestLocationUpdates(
-                locationRequest, locationCallback, Looper.getMainLooper())
+                locationRequest,
+                locationCallback,
+                Looper.getMainLooper()
+            )
         } catch (unlikely: SecurityException) {
             SharedPreferenceUtil.saveLocationTrackingPref(this, false)
             Log.e(TAG, "Lost location permissions. Couldn't remove updates. $unlikely")
@@ -259,14 +266,16 @@ class ForegroundOnlyLocationService : Service() {
 
         // 1. Create Notification Channel for O+ and beyond devices (26+).
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-
-            val notificationChannel = NotificationChannel(
-                NOTIFICATION_CHANNEL_ID, titleText, NotificationManager.IMPORTANCE_DEFAULT)
-
             // Adds NotificationChannel to system. Attempting to create an
             // existing notification channel with its original values performs
             // no operation, so it's safe to perform the below sequence.
-            notificationManager.createNotificationChannel(notificationChannel)
+            notificationManager.createNotificationChannel(
+                NotificationChannel(
+                    NOTIFICATION_CHANNEL_ID,
+                    titleText,
+                    NotificationManager.IMPORTANCE_DEFAULT
+                )
+            )
         }
 
         // 2. Build the BIG_TEXT_STYLE.
@@ -291,24 +300,24 @@ class ForegroundOnlyLocationService : Service() {
         val notificationCompatBuilder =
             NotificationCompat.Builder(applicationContext, NOTIFICATION_CHANNEL_ID)
 
-        return notificationCompatBuilder
-            .setStyle(bigTextStyle)
-            .setContentTitle(titleText)
-            .setContentText(mainNotificationText)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setDefaults(NotificationCompat.DEFAULT_ALL)
-            .setOngoing(true)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .addAction(
+        return notificationCompatBuilder.apply {
+            setStyle(bigTextStyle)
+            setContentTitle(titleText)
+            setContentText(mainNotificationText)
+            setSmallIcon(R.mipmap.ic_launcher)
+            setDefaults(NotificationCompat.DEFAULT_ALL)
+            setOngoing(true)
+            setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            addAction(
                 R.drawable.ic_launch, getString(R.string.launch_activity),
                 activityPendingIntent
             )
-            .addAction(
+            addAction(
                 R.drawable.ic_cancel,
                 getString(R.string.stop_location_updates_button_text),
                 servicePendingIntent
             )
-            .build()
+        }.build()
     }
 
     /**
