@@ -16,13 +16,7 @@
 package com.example.android.whileinuselocation
 
 import android.Manifest
-import android.content.BroadcastReceiver
-import android.content.ComponentName
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
-import android.content.ServiceConnection
-import android.content.SharedPreferences
+import android.content.*
 import android.content.pm.PackageManager
 import android.location.Location
 import android.net.Uri
@@ -30,11 +24,11 @@ import android.os.Bundle
 import android.os.IBinder
 import android.provider.Settings
 import android.util.Log
-import android.widget.Button
-import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import androidx.viewbinding.BuildConfig
+import com.example.android.whileinuselocation.databinding.ActivityMainBinding
 import com.google.android.material.snackbar.Snackbar
 
 private const val TAG = "MainActivity"
@@ -82,6 +76,8 @@ private const val REQUEST_FOREGROUND_ONLY_PERMISSIONS_REQUEST_CODE = 34
  * notification. This dismisses the notification and stops the service.
  */
 class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceChangeListener {
+    private lateinit var binding: ActivityMainBinding
+   
     private var foregroundOnlyLocationServiceBound = false
 
     // Provides location updates for while-in-use feature.
@@ -91,10 +87,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private lateinit var foregroundOnlyBroadcastReceiver: ForegroundOnlyBroadcastReceiver
 
     private lateinit var sharedPreferences: SharedPreferences
-
-    private lateinit var foregroundOnlyLocationButton: Button
-
-    private lateinit var outputTextView: TextView
 
     // Monitors connection to the while-in-use service.
     private val foregroundOnlyServiceConnection = object : ServiceConnection {
@@ -114,17 +106,16 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        val view = binding.root
+        setContentView(view)
 
         foregroundOnlyBroadcastReceiver = ForegroundOnlyBroadcastReceiver()
 
         sharedPreferences =
             getSharedPreferences(getString(R.string.preference_file_key), Context.MODE_PRIVATE)
 
-        foregroundOnlyLocationButton = findViewById(R.id.foreground_only_location_button)
-        outputTextView = findViewById(R.id.output_text_view)
-
-        foregroundOnlyLocationButton.setOnClickListener {
+        binding.foregroundOnlyLocationButton.setOnClickListener {
             val enabled = sharedPreferences.getBoolean(
                 SharedPreferenceUtil.KEY_FOREGROUND_ENABLED, false)
 
@@ -150,9 +141,12 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             sharedPreferences.getBoolean(SharedPreferenceUtil.KEY_FOREGROUND_ENABLED, false)
         )
         sharedPreferences.registerOnSharedPreferenceChangeListener(this)
-
-        val serviceIntent = Intent(this, ForegroundOnlyLocationService::class.java)
-        bindService(serviceIntent, foregroundOnlyServiceConnection, Context.BIND_AUTO_CREATE)
+        
+        bindService(
+            Intent(this, ForegroundOnlyLocationService::class.java),
+            foregroundOnlyServiceConnection,
+            Context.BIND_AUTO_CREATE
+        )
     }
 
     override fun onResume() {
@@ -235,6 +229,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         permissions: Array<String>,
         grantResults: IntArray
     ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         Log.d(TAG, "onRequestPermissionResult")
 
         when (requestCode) {
@@ -259,15 +254,15 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
                     )
                         .setAction(R.string.settings) {
                             // Build intent that displays the App settings screen.
-                            val intent = Intent()
-                            intent.action = Settings.ACTION_APPLICATION_DETAILS_SETTINGS
-                            val uri = Uri.fromParts(
-                                "package",
-                                BuildConfig.APPLICATION_ID,
-                                null
-                            )
-                            intent.data = uri
-                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            val intent = Intent().apply {
+                                action = Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                                data = Uri.fromParts(
+                                    "package",
+                                    BuildConfig.LIBRARY_PACKAGE_NAME,
+                                    null
+                                )
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
                             startActivity(intent)
                         }
                         .show()
@@ -277,16 +272,18 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     }
 
     private fun updateButtonState(trackingLocation: Boolean) {
-        if (trackingLocation) {
-            foregroundOnlyLocationButton.text = getString(R.string.stop_location_updates_button_text)
+        binding.foregroundOnlyLocationButton.text = if (trackingLocation) {
+            getString(R.string.stop_location_updates_button_text)
         } else {
-            foregroundOnlyLocationButton.text = getString(R.string.start_location_updates_button_text)
+            getString(R.string.start_location_updates_button_text)
         }
     }
 
     private fun logResultsToScreen(output: String) {
-        val outputWithPreviousLogs = "$output\n${outputTextView.text}"
-        outputTextView.text = outputWithPreviousLogs
+        with(binding) {
+            val outputWithPreviousLogs = "$output\n${outputTextView.text}"
+            outputTextView.text = outputWithPreviousLogs
+        }
     }
 
     /**
